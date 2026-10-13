@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>카카오맵 사진 스팟 지도 서비스</title>
+
+  <style>
+    /* 기본 여백 및 박스 모드 설정 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      background-color: #f8f9fa;
+    }
+
+    /* 전체 화면을 가로로 2분할 */
+    #container {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 왼쪽 사이드바 (탭 + 목록 + 상세) */
+    #sidebar {
+      width: 360px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #e0e0e0;
+      background: #ffffff;
+      z-index: 10;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+    }
+
+    /* 헤더 타이틀 */
+    #header-title {
+      padding: 16px;
+      background: #fee500;
+      color: #191919;
+      font-size: 18px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* 탭 버튼 영역 */
+    #tab-container {
+      display: flex;
+      border-bottom: 1px solid #e0e0e0;
+      background: #fafafa;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px 8px;
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      font-weight: bold;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 3px solid transparent;
+    }
+
+    .tab-btn.active {
+      color: #191919;
+      background: #ffffff;
+      border-bottom: 3px solid #fee500;
+    }
+
+    /* 컨트롤 및 정보 영역 */
+    #control-box {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+    }
+
+    #route-btn {
+      padding: 8px 12px;
+      border: 1px solid #191919;
+      border-radius: 6px;
+      background: #191919;
+      color: #fff;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #route-btn:hover {
+      background: #333;
+    }
+
+    /* 검색 결과 리스트 영역 */
+    #result-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    /* 장소 카드 스타일 */
+    .spot-card {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      margin-bottom: 10px;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .spot-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border-color: #ffd600;
+    }
+
+    .spot-img {
+      width: 75px;
+      height: 75px;
+      border-radius: 6px;
+      object-fit: cover;
+      background-color: #eee;
+      flex-shrink: 0;
+    }
+
+    .spot-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    .spot-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #222;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .spot-address {
+      font-size: 12px;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .spot-badge {
+      display: inline-block;
+      font-size: 11px;
+      color: #007aff;
+      background: #eef6ff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      width: fit-content;
+      margin-top: 2px;
+    }
+
+    .empty-msg {
+      text-align: center;
+      color: #888;
+      font-size: 14px;
+      margin-top: 40px;
+      line-height: 1.5;
+    }
+
+    /* 오른쪽: 지도 */
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+
+    /* 커스텀 마커 팝업 (인포윈도우) 스타일 */
+    .info-window {
+      padding: 12px;
+      width: 240px;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      font-size: 12px;
+    }
+
+    .info-window img {
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .info-window .info-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #111;
+      margin-bottom: 4px;
+    }
+
+    .info-window .info-addr {
+      color: #666;
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .info-window .info-time {
+      color: #ff3b30;
+      font-weight: bold;
+      background: #fff2f2;
+      padding: 4px 6px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    /* 모바일 가로/세로 응답형 레아아웃 */
+    @media (max-width: 700px) {
+      #container {
+        flex-direction: column;
+      }
+      #sidebar {
+        width: 100%;
+        height: 45%;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+      }
+      #map {
+        height: 55%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <!-- 왼쪽 사이드바 영역 -->
+    <div id="sidebar">
+      <div id="header-title">
+        📷 카카오맵 사진 스팟
+      </div>
+
+      <!-- 탭 버튼 목록 -->
+      <div id="tab-container">
+        <button id="tab-nearby" class="tab-btn active" onclick="switchTab('nearby')">📍 주변 스팟</button>
+        <button id="tab-all" class="tab-btn" onclick="switchTab('all')">🌐 모든 스팟 (전국)</button>
+      </div>
+
+      <!-- 제어 바 (최적 경로 생성 등) -->
+      <div id="control-box">
+        <span id="spot-count-text" style="font-size: 12px; color: #666;">스팟 검색 중...</span>
+        <button id="route-btn" onclick="drawEfficientRoute()">🛣️ 효율적 루트 연결</button>
+      </div>
+
+      <!-- 리스트 결과 출력 영역 -->
+      <div id="result-list">
+        <div class="empty-msg">데이터를 불러오는 중입니다...</div>
+      </div>
+    </div>
+
+    <!-- 오른쪽 지도 영역 -->
+    <div id="map"></div>
+  </div>
+
+  <!-- 카카오 지도 SDK -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=a99c2258308740108382db4d6ec009ec&libraries=services&autoload=false"></script>
+
+  <script>
+    // 1. 설정 및 상태 변수
+    const TOUR_API_KEY = "1c2af06ba22a954988a491be918165cdacd07467751d8d5ed89b3c48ef503642";
+    const DEFAULT_LAT = 37.5665; // 기본 위치 (서울시청)
+    const DEFAULT_LNG = 126.9780;
+    
+    let userLat = DEFAULT_LAT;
+    let userLng = DEFAULT_LNG;
+    let currentTab = "nearby"; // "nearby" 또는 "all"
+
+    let map = null;
+    let markersList = []; // 지도에 생성된 마커 객체 리스트
+    let currentOverlayList = []; // 커스텀 팝업 오버레이 리스트
+    let spotDataList = []; // 불러온 관광지 스팟 데이터
+    let routePolyline = null; // 연결 라인 객체
+
+    // 카메라인 이미지 아이콘 데이터 URL (SVG 아이콘 사용)
+    const cameraIconSvg = `data:image/svg+xml;utf8,` + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="#191919">
+        <path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/>
+        <path fill-rule="evenodd" d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" clip-rule="evenodd"/>
+      </svg>
+    `);
+
+    // 대체 이미지 URL (TourAPI 이미지 미제공시 기본 사진)
+    const fallbackImage = "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=300&auto=format&fit=crop&q=60";
+
+    // 2. 카카오 지도 초기화
+    kakao.maps.load(function () {
+      if (!navigator.geolocation) {
+        initMap(DEFAULT_LAT, DEFAULT_LNG);
+        fetchSpotData();
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          userLat = position.coords.latitude;
+          userLng = position.coords.longitude;
+          initMap(userLat, userLng);
+          fetchSpotData();
+        },
+        function (error) {
+          console.warn("위치 정보 받기 실패:", error.message);
+          initMap(DEFAULT_LAT, DEFAULT_LNG);
+          fetchSpotData();
+        }
+      );
+    });
+
+    // 지도 객체 생성 함수
+    function initMap(lat, lng) {
+      const container = document.getElementById("map");
+      const options = {
+        center: new kakao.maps.LatLng(lat, lng),
+        level: 6
+      };
+      map = new kakao.maps.Map(container, options);
+    }
+
+    // 3. 탭 변경 핸들러
+    function switchTab(tabName) {
+      if (currentTab === tabName) return;
+
+      currentTab = tabName;
+      document.getElementById("tab-nearby").classList.toggle("active", tabName === "nearby");
+      document.getElementById("tab-all").classList.toggle("active", tabName === "all");
+
+      // 기존 표시 요소 모두 초기화
+      clearAllMapElements();
+      
+      // 새 데이터 로드
+      fetchSpotData();
+    }
+
+    // 지도 위 마커, 오버레이 및 경로 정리
+    function clearAllMapElements() {
+      markersList.forEach(m => m.setMap(null));
+      markersList = [];
+
+      currentOverlayList.forEach(o => o.setMap(null));
+      currentOverlayList = [];
+
+      if (routePolyline) {
+        routePolyline.setMap(null);
+        routePolyline = null;
+      }
+
+      spotDataList = [];
+    }
+
+    // 4. TourAPI 데이터 호출
+    function fetchSpotData() {
+      const resultListEl = document.getElementById("result-list");
+      const countTextEl = document.getElementById("spot-count-text");
+      
+      resultListEl.innerHTML = '<div class="empty-msg">사진 스팟을 찾는 중입니다...</div>';
+      countTextEl.innerText = "조회 중...";
+
+      let apiUrl = "";
+
+      if (currentTab === "nearby") {
+        // [탭 1] 내 위치 주변 관광지 검색 (radius: 5000m)
+        apiUrl = `https://apis.data.go.kr/B551011/KorService1/locationBasedList1?serviceKey=${TOUR_API_KEY}&numOfRows=25&pageNo=1&MobileOS=ETC&MobileApp=AppTest&_type=json&arrange=C&mapX=${userLng}&mapY=${userLat}&radius=5000`;
+      } else {
+        // [탭 2] 전국 주요 관광 스팟 검색
+        apiUrl = `https://apis.data.go.kr/B551011/KorService1/areaBasedList1?serviceKey=${TOUR_API_KEY}&numOfRows=30&pageNo=1&MobileOS=ETC&MobileApp=AppTest&_type=json&arrange=O`;
+      }
+
+      fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+          const items = data.response?.body?.items?.item;
+          if (!items || items.length === 0) {
+            resultListEl.innerHTML = '<div class="empty-msg">검색된 사진 스팟이 없습니다.</div>';
+            countTextEl.innerText = "0개의 스팟";
+            return;
+          }
+
+          spotDataList = items.map((item, idx) => ({
+            id: item.contentid || idx,
+            title: item.title,
+            address: item.addr1 || "주소 정보 없음",
+            lat: parseFloat(item.mapy),
+            lng: parseFloat(item.mapx),
+            image: item.firstimage || item.firstimage2 || fallbackImage,
+            bestTime: calculateBestTime(item.title)
+          })).filter(spot => !isNaN(spot.lat) && !isNaN(spot.lng));
+
+          countTextEl.innerText = `총 ${spotDataList.length}개 발견`;
+          renderSpotListAndMarkers(spotDataList);
+        })
+        .catch(err => {
+          console.error("TourAPI 로드 실패:", err);
+          resultListEl.innerHTML = '<div class="empty-msg">데이터를 불러오는 중에 오류가 발생했습니다.</div>';
+          countTextEl.innerText = "오류 발생";
+        });
+    }
+
+    // 5. 기획서 기능 1: 관광지 이름 기반 최적 추천 촬영 시간대 계산
+    function calculateBestTime(title) {
+      if (title.includes("야경") || title.includes("타워") || title.includes("대교") || title.includes("빛")) {
+        return "🌙 야간 타임 (19:00 ~ 22:00)";
+      } else if (title.includes("해변") || title.includes("일출") || title.includes("노을") || title.includes("공원") || title.includes("산")) {
+        return "🌅 골든아워 (06:30 / 18:00)";
+      } else if (title.includes("카페") || title.includes("박물관") || title.includes("미술관") || title.includes("거리")) {
+        return "☀️ 주간 타임 (11:00 ~ 15:00)";
+      }
+      return "📸 햇살 좋은 시간 (14:00 ~ 16:30)";
+    }
+
+    // 6. 목록 카드 및 카메라 마커 생성
+    function renderSpotListAndMarkers(spots) {
+      const resultListEl = document.getElementById("result-list");
+      resultListEl.innerHTML = "";
+
+      const bounds = new kakao.maps.LatLngBounds();
+
+      spots.forEach((spot, index) => {
+        // [1] 사이드바 결과 리스트 카드 생성
+        const card = document.createElement("div");
+        card.className = "spot-card";
+        card.innerHTML = `
+          <img class="spot-img" src="${spot.image}" alt="${spot.title}" onerror="this.src='${fallbackImage}'">
+          <div class="spot-info">
+            <div class="spot-title">${index + 1}. ${spot.title}</div>
+            <div class="spot-address">${spot.address}</div>
+            <div class="spot-badge">${spot.bestTime}</div>
+          </div>
+        `;
+        card.onclick = () => focusSpot(index);
+        resultListEl.appendChild(card);
+
+        // [2] 카카오 지도 위에 '카메라 모양' 커스텀 마커 표시
+        const markerPosition = new kakao.maps.LatLng(spot.lat, spot.lng);
+        bounds.extend(markerPosition);
+
+        const markerImage = new kakao.maps.MarkerImage(
+          cameraIconSvg,
+          new kakao.maps.Size(32, 32),
+          { offset: new kakao.maps.Point(16, 16) }
+        );
+
+        const marker = new kakao.maps.Marker({
+          position: markerPosition,
+          image: markerImage,
+          map: map
+        });
+
+        // [3] 인포윈도우 (커스텀 오버레이 팝업) 생성
+        const overlayContent = `
+          <div class="info-window">
+            <img src="${spot.image}" onerror="this.src='${fallbackImage}'"/>
+            <div class="info-title">${spot.title}</div>
+            <div class="info-addr">${spot.address}</div>
+            <div class="info-time">추천: ${spot.bestTime}</div>
+          </div>
+        `;
+
+        const customOverlay = new kakao.maps.CustomOverlay({
+          content: overlayContent,
+          position: markerPosition,
+          yAnchor: 1.2,
+          zIndex: 3
+        });
+
+        // 마커 클릭 시 팝업 열기
+        kakao.maps.event.addListener(marker, "click", function () {
+          closeAllOverlays();
+          customOverlay.setMap(map);
+          map.panTo(markerPosition);
+        });
+
+        markersList.push(marker);
+        currentOverlayList.push(customOverlay);
+      });
+
+      // 지도 범위 자동 재조정
+      if (spots.length > 0) {
+        map.setBounds(bounds);
+      }
+    }
+
+    // 마커/카드 클릭 시 해당 위치 집중
+    function focusSpot(index) {
+      closeAllOverlays();
+      const spot = spotDataList[index];
+      const moveLatLon = new kakao.maps.LatLng(spot.lat, spot.lng);
+
+      currentOverlayList[index].setMap(map);
+      map.setLevel(4);
+      map.panTo(moveLatLon);
+    }
+
+    function closeAllOverlays() {
+      currentOverlayList.forEach(o => o.setMap(null));
+    }
+
+    // 7. 기획서 기능 2: 가장 효율적인 최단 촬영 경로 생성 (TSP 탐욕 알고리즘 적용)
+    function drawEfficientRoute() {
+      if (spotDataList.length < 2) {
+        alert("경로를 생성하려면 최소 2개 이상의 스팟이 필요합니다.");
+        return;
+      }
+
+      // 기존 경로선 제거
+      if (routePolyline) {
+        routePolyline.setMap(null);
+      }
+
+      // 가장 가까운 스팟을 순차적으로 방문하도록 정렬 (Greedy TSP)
+      let unvisited = [...spotDataList];
+      let routePath = [unvisited.shift()]; // 시작점
+
+      while (unvisited.length > 0) {
+        const lastNode = routePath[routePath.length - 1];
+        let nearestIndex = 0;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < unvisited.length; i++) {
+          const dist = getDistance(lastNode.lat, lastNode.lng, unvisited[i].lat, unvisited[i].lng);
+          if (dist < minDistance) {
+            minDistance = dist;
+            nearestIndex = i;
+          }
+        }
+
+        routePath.push(unvisited.splice(nearestIndex, 1)[0]);
+      }
+
+      // 정렬된 순서에 맞게 선 좌표 설정 및 그리기
+      const linePath = routePath.map(spot => new kakao.maps.LatLng(spot.lat, spot.lng));
+
+      routePolyline = new kakao.maps.Polyline({
+        path: linePath,
+        strokeWeight: 5,
+        strokeColor: '#0055ff',
+        strokeOpacity: 0.8,
+        strokeStyle: 'dash'
+      });
+
+      routePolyline.setMap(map);
+      alert("가장 효율적인 추천 이동 경로가 연동되어 점선으로 연결되었습니다!");
+    }
+
+    // 두 좌표 간 유클리드 거리 단순 계산 함수
+    function getDistance(lat1, lng1, lat2, lng2) {
+      const dx = lat1 - lat2;
+      const dy = lng1 - lng2;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+  </script>
+</body>
+</html>
